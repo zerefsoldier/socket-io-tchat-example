@@ -284,7 +284,7 @@
                             return this.othersPrivateTchats[email].map((room) => {
                                 return {
                                     room,
-                                    clients: Object.keys(this.othersPrivateTchats).filter((email) => this.othersPrivateTchats[email].find(room)),
+                                    clients: Object.keys(this.othersPrivateTchats).filter((email) => this.othersPrivateTchats[email].indexOf(room) !== -1),
                                 }
                             });
                         }
