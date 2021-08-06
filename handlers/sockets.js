@@ -72,6 +72,14 @@ const socketHandler = function(wsServer) {
             });
         });
 
+        socket.on("leave_tchat", (room) => {
+            socket.leave(room); // We leave the room
+            socket.broadcast.emit("client_leave_private_tchat", {
+                room,
+                email: socketsDetails[socket.id].email,
+            });
+        });
+
         socket.on("message_to_all", (message) => {
             socket.broadcast.emit("message", {
                 sender: `${socketsDetails[socket.id].firstname}.${socketsDetails[socket.id].lastname.toUpperCase()}`,
