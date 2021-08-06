@@ -13,9 +13,9 @@
                 <button @click="goToTchat()">Accéder au tchat</button>
             </div>
             <div v-if="tchatOpened">
+                <p>{{firstname}}.{{lastname.toUpperCase()}} - {{email}} - <b>{{socketId}}</b> (socket id)</p>
                 <p v-if="allClients.length === 0" style="text-align: center;">Vous etes le seul sur le tchat. Patience, d'autres clients devraient bientôt arriver ...</p>
                 <div v-else>
-                    <p>{{firstname}}.{{lastname.toUpperCase()}} - {{email}} - <b>{{socketId}}</b> (socket id)</p>
                     <div id="container">
                         <div v-if="allClients.length > 0" id="allClients">
                             <h3>Tous les clients</h3>
