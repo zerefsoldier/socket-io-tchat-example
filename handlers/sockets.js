@@ -53,7 +53,7 @@ const socketHandler = function(wsServer) {
             socket.broadcast.emit("new_client", JSON.stringify(socketsDetails[socket.id]));
         });
 
-        socket.on("join_other", (datas) => {
+        socket.on("speak_with_other", (datas) => {
             const socketsService = require("../logic/socketsService");
 
             if (datas.type === "init") {

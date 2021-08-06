@@ -251,13 +251,13 @@
                     if (!this.privateTchats.find((tchat) => tchat.email === email)) {
 
                         if (room) {
-                            this.socketInstance.emit("join_other", {
+                            this.socketInstance.emit("speak_with_other", {
                                 type: "join",
                                 room,
                             });
                             this.userPrivateTchatsResume = null;
                         } else if (!this.othersPrivateTchats[email]) {
-                            this.socketInstance.emit("join_other", {
+                            this.socketInstance.emit("speak_with_other", {
                                 type: "init",
                                 socketId,
                             });
@@ -270,13 +270,13 @@
                 },
                 getUserPrivateTchatsResume: function(email, socketId) {
                     if (confirm(`Voulez-vous ouvrir une discussion avec uniquement ${email} ? Cliquer sur annuler va vous faire dialoguer avec un groupe.`)) {
-                        this.socketInstance.emit("join_other", {
+                        this.socketInstance.emit("speak_with_other", {
                             type: "init",
                             socketId,
                         });
                     } else {
                         if (this.othersPrivateTchats[email].length === 1) {
-                            this.socketInstance.emit("join_other", {
+                            this.socketInstance.emit("speak_with_other", {
                                 type: "join",
                                 room: this.othersPrivateTchats[email][0],
                             });
