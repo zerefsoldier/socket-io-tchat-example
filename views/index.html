@@ -24,7 +24,7 @@
                                 </span>
                             </div>
                         </div>
-                        <div v-if="privateTchatSpecificUserDescription">
+                        <div v-if="userPrivateTchatsResume">
                             <h5>Cette personne est en conversation avec plusieurs autres personnes. Choisissez avec qui vous voulez parler</h5>
                             <div>
                                 <div v-for="clientTchat in userPrivateTchatsResume">
@@ -47,7 +47,8 @@
                 </div>
             </div>
             <div v-if="privateTchats.length > 0" id="privateTchats">
-                <div v-for="privateTchat in privateTchats" class="privateTchat">
+                <div v-for="(privateTchat, index) in privateTchats" class="privateTchat">
+                    <span class="leaveTchat" @click="leaveTchat(privateTchat.room, index)">Partir du tchat</span>
                     <h5>Conversation avec {{getPrivateTchatAllEmails(privateTchat.room)}}</h5>
                     <p v-for="message in privateTchat.messages">
                         {{message}}
@@ -110,8 +111,18 @@
             vertical-align: top;
         }
 
+        .privateTchat .leaveTchat {
+            float: right;
+            margin: 5px 5px 0 0;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 6px;
+            border: 2px solid black;
+        }
+
         .privateTchat h5 {
             text-align: center;
+            margin-top: 55px;
         }
 
         .privateTchat input, .privateTchat input:focus-visible {
@@ -233,13 +244,28 @@
                         this.privateTchats.find((tchat) => tchat.room  === datas.room).messages.push(`${datas.sender} à écrit : ${datas.message}`);
                     });
 
+                    this.socketInstance.on("client_leave_private_tchat", (datas) => {
+                        const roomUserOtherTchatIndex = this.othersPrivateTchats[datas.email]?.indexOf(datas.room);
+                        const actualClientTchatIndex = this.privateTchats.findIndex((tchat) => tchat.room === datas.room);
+
+                        if (roomUserOtherTchatIndex) this.othersPrivateTchats[datas.email].splice(roomUserOtherTchatIndex, 1);
+                        if (actualClientTchatIndex !== -1) {
+                            const privateTchat = this.privateTchats[actualClientTchatIndex];
+                            privateTchat.emails.splice(privateTchat.emails.indexOf(datas.email), 1);
+
+                            if (privateTchat.emails.length === 0) {
+                                this.leaveTchat(datas.room, actualClientTchatIndex);
+                            }
+                        }
+                    });
+
                     this.socketInstance.on("error", (message) => {
                         alert(message);
                     });
                 },
                 getPrivateTchatAllEmails: function(room) {
                     const userTchat = this.privateTchats.find((tchat) => tchat.room === room);
-                    if (userTchat.emails.length <= 3) return userTchat.emails.join(",");
+                    if (userTchat.emails.length <= 3) return userTchat.emails.join(", ");
                     else return `${Array.from(userTchat.emails).splice(0, 3)} et ${userTchat.emails.length - 3} autre(s)`;
                 },
                 handleNetworkListener : function() {
@@ -267,6 +293,10 @@
                     } else {
                         alert("Vous avez déjà une discussion ouverte avec cette personne");
                     }
+                },
+                leaveTchat: function(room, tchatIndex) {
+                    this.privateTchats.splice(tchatIndex, 1);
+                    this.socketInstance.emit("leave_tchat", room);
                 },
                 getUserPrivateTchatsResume: function(email, socketId) {
                     if (confirm(`Voulez-vous ouvrir une discussion avec uniquement ${email} ? Cliquer sur annuler va vous faire dialoguer avec son groupe ou un de ses groupes.`)) {
