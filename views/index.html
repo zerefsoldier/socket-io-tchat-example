@@ -269,7 +269,7 @@
                     }
                 },
                 getUserPrivateTchatsResume: function(email, socketId) {
-                    if (confirm(`Voulez-vous ouvrir une discussion avec uniquement ${email} ? Cliquer sur annuler va vous faire dialoguer avec un groupe.`)) {
+                    if (confirm(`Voulez-vous ouvrir une discussion avec uniquement ${email} ? Cliquer sur annuler va vous faire dialoguer avec son groupe ou un de ses groupes.`)) {
                         this.socketInstance.emit("speak_with_other", {
                             type: "init",
                             socketId,
