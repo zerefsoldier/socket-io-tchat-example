@@ -15,12 +15,27 @@
             <div v-if="tchatOpened">
                 <p v-if="allClients.length === 0" style="text-align: center;">Vous etes le seul sur le tchat. Patience, d'autres clients devraient bientôt arriver ...</p>
                 <div v-else>
-                    <p @click="print()">{{firstname}}.{{lastname.toUpperCase()}} - {{email}} - <b>{{socketId}}</b> (socket id)</p>
+                    <p>{{firstname}}.{{lastname.toUpperCase()}} - {{email}} - <b>{{socketId}}</b> (socket id)</p>
                     <div id="container">
                         <div v-if="allClients.length > 0" id="allClients">
                             <h3>Tous les clients</h3>
                             <div v-for="client in allClients">
-                                <span class="clientInTchat"  v-bind:title="`Ouvrir une discussion privée avec ${client.firstname}.${client.lastname.toUpperCase()}`" @click="openPrivateChatbox(client.socketId, client.email)">{{client.firstname}}.{{client.lastname.toUpperCase()}} - {{client.email}}</span>
+                                <span class="clientInTchat"  v-bind:title="`Ouvrir une discussion privée avec ${client.firstname}.${client.lastname.toUpperCase()}`" @click="openPrivateChatbox(client.socketId, client.email)">{{client.firstname}}.{{client.lastname.toUpperCase()}} - {{client.email}}
+                                </span>
+                            </div>
+                        </div>
+                        <div v-if="privateTchatSpecificUserDescription">
+                            <h5>Cette personne est en conversation avec plusieurs autres personnes. Choisissez avec qui vous voulez parler</h5>
+                            <div>
+                                <div v-for="clientTchat in userPrivateTchatsResume">
+                                    <ul>
+                                        <span>Tchat ouvert avec</span>
+                                        <li v-for="client in clientTchat.clients">{{client}}</li>
+                                    </ul>
+                                    <button @click="openPrivateChatbox(null, null, clientTchat.room)" type="button">
+                                        Rejoindre le tchat
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div id="mainTchatBox">
@@ -33,7 +48,7 @@
             </div>
             <div v-if="privateTchats.length > 0" id="privateTchats">
                 <div v-for="privateTchat in privateTchats" class="privateTchat">
-                    <h5>Conversation avec {{privateTchat.email}}</h5>
+                    <h5>Conversation avec {{getPrivateTchatAllEmails(privateTchat.room)}}</h5>
                     <p v-for="message in privateTchat.messages">
                         {{message}}
                     </p>
@@ -92,6 +107,7 @@
             display: inline-block;
             width: 20%;
             margin: 0 10px 0 10px;
+            vertical-align: top;
         }
 
         .privateTchat h5 {
@@ -125,6 +141,8 @@
                 messages: [],
                 messageTchat: "",
                 privateTchats: [],
+                othersPrivateTchats: {},
+                userPrivateTchatsResume: null,
                 previousMessages: [],
                 onLineState: true,
                 reconnectEstablished: false,
@@ -156,11 +174,19 @@
                         }
                     });
 
-                    this.socketInstance.on("connected", (previousMessages) => {
+                    this.socketInstance.on("connected", (datas) => {
                         this.tchatOpened = true;
                         this.socketId = this.socketInstance.id;
                         this.socketInstance.emit("get_clients");
-                        this.previousMessages = JSON.parse(previousMessages);
+                        this.previousMessages = datas.previousMessages;
+
+                        for (const value of datas.usersRooms) {
+                            if (!this.othersPrivateTchats[value[0]]) {
+                                this.othersPrivateTchats[value[0]] = [value[1]];
+                            } else {
+                                this.othersPrivateTchats[value[0]].push(value[1]);
+                            }
+                        }
                     });
 
                     this.socketInstance.on("clients_list", (datas) => {
@@ -171,26 +197,39 @@
                         this.allClients.push(JSON.parse(datas));
                     });
 
-                    this.socketInstance.on("message", (message) => {
-                        const datas = JSON.parse(message);
+                    this.socketInstance.on("message", (datas) => {
                         this.messages.push(`${datas.sender} à écrit : ${datas.message}`);
                     });
 
-                    this.socketInstance.on("private_chatbox", (room) => {
-                        this.privateTchats[this.privateTchats.length - 1].room = room;
+                    this.socketInstance.on("private_chatbox", (datas) => {
+                        this.privateTchats.push({
+                            ...datas,
+                            messages: [],
+                        });
                     });
 
-                    this.socketInstance.on("private_chatbox_opened", (response) => {
-                        const datas = JSON.parse(response);
+                    this.socketInstance.on("private_chatbox_opened", (datas) => {
                         this.privateTchats.push({
-                            email: datas.email,
+                            emails: [datas.email],
                             messages: [],
                             room: datas.room,
                         });
                     });
 
-                    this.socketInstance.on("private_message_received", (request) => {
-                        const datas = JSON.parse(request);
+                    this.socketInstance.on("private_chatbox_joined", (datas) => {
+                        this.privateTchats.find((privateTchat) => privateTchat.room === datas.room).emails.push(datas.email);
+                    });
+
+                    this.socketInstance.on("private_chatbox_opened_by_others", (datas) => {
+                        datas.clients.forEach((client) => {
+                            if (!this.othersPrivateTchats[client])
+                                this.othersPrivateTchats[client] = [datas.room];
+                            else
+                                this.othersPrivateTchats[client].push(datas.room);
+                        });
+                    });
+
+                    this.socketInstance.on("private_message_received", (datas) => {
                         this.privateTchats.find((tchat) => tchat.room  === datas.room).messages.push(`${datas.sender} à écrit : ${datas.message}`);
                     });
 
@@ -198,20 +237,57 @@
                         alert(message);
                     });
                 },
+                getPrivateTchatAllEmails: function(room) {
+                    const userTchat = this.privateTchats.find((tchat) => tchat.room === room);
+                    if (userTchat.emails.length <= 3) return userTchat.emails.join(",");
+                    else return `${Array.from(userTchat.emails).splice(0, 3)} et ${userTchat.emails.length - 3} autre(s)`;
+                },
                 handleNetworkListener : function() {
                     document.addEventListener("onoffline", () => {
                         this.onLineState = this.reconnectEstablished = false;
                     });
                 },
-                openPrivateChatbox: function(socketId, email) {
+                openPrivateChatbox: function(socketId, email, room = null) {
                     if (!this.privateTchats.find((tchat) => tchat.email === email)) {
-                        this.privateTchats.push({
-                            email,
-                            messages: [],
-                        });
-                        this.socketInstance.emit("join_other", socketId);
+
+                        if (room) {
+                            this.socketInstance.emit("speak_with_other", {
+                                type: "join",
+                                room,
+                            });
+                            this.userPrivateTchatsResume = null;
+                        } else if (!this.othersPrivateTchats[email]) {
+                            this.socketInstance.emit("speak_with_other", {
+                                type: "init",
+                                socketId,
+                            });
+                        } else {
+                            this.userPrivateTchatsResume = this.getUserPrivateTchatsResume(email, socketId);
+                        }
                     } else {
                         alert("Vous avez déjà une discussion ouverte avec cette personne");
+                    }
+                },
+                getUserPrivateTchatsResume: function(email, socketId) {
+                    if (confirm(`Voulez-vous ouvrir une discussion avec uniquement ${email} ? Cliquer sur annuler va vous faire dialoguer avec son groupe ou un de ses groupes.`)) {
+                        this.socketInstance.emit("speak_with_other", {
+                            type: "init",
+                            socketId,
+                        });
+                    } else {
+                        if (this.othersPrivateTchats[email].length === 1) {
+                            this.socketInstance.emit("speak_with_other", {
+                                type: "join",
+                                room: this.othersPrivateTchats[email][0],
+                            });
+                        } else {
+                            return this.othersPrivateTchats[email].map((room) => {
+                                return {
+                                    room,
+                                    clients: Object.keys(this.othersPrivateTchats).filter((email) => this.othersPrivateTchats[email].indexOf(room) !== -1),
+                                }
+                            });
+                        }
                     }
                 },
                 sendPrivateMessage: function(room, target) {
